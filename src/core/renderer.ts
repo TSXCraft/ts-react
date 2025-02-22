@@ -32,7 +32,9 @@ export class Renderer {
   }
 
   private commitWork(fiber: Node | null) {
-    if (!fiber) return;
+    if (!fiber) {
+      return;
+    }
   
     let dom: HTMLElement | Text | undefined | null = fiber.dom;
 
@@ -86,7 +88,12 @@ export class Renderer {
       });
     }
   
-    if (fiber.child) this.commitWork(fiber.child);
-    if (fiber.sibling) this.commitWork(fiber.sibling);
+    if (fiber.child) {
+      this.commitWork(fiber.child);
+    }
+
+    if (fiber.sibling) {
+      this.commitWork(fiber.sibling);
+    }
   }
 }
