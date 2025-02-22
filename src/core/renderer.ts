@@ -31,11 +31,7 @@ export class Renderer {
     }
   }
 
-  private commitWork(fiber: Node | null) {
-    if (!fiber) {
-      return;
-    }
-  
+  private createDomElement(fiber: Node) {
     let dom: HTMLElement | Text | undefined | null = fiber.dom;
 
     if (!dom) {
@@ -44,10 +40,12 @@ export class Renderer {
       } else if (typeof fiber.type === "string") {
         dom = document.createElement(fiber.type);
       }
-
-      fiber.dom = dom;
     }
-  
+
+    return dom;
+  }
+
+  private checkProps(fiber: Node) {
     if (fiber.dom instanceof HTMLElement) {
       Object.keys(fiber.props)
         .filter((key) => key !== "children")
@@ -57,13 +55,17 @@ export class Renderer {
           }
         });
     }
-  
+  }
+
+  private appendNewNode(fiber: Node) {
     if (fiber.parent?.dom instanceof HTMLElement && fiber.dom) {
       if (!fiber.alternate) {
         fiber.parent.dom.appendChild(fiber.dom);
       }
     }
-  
+  }
+
+  private updateFiberNode(fiber: Node) {
     let prevSibling: Node | null = null;
   
     if (fiber.dom instanceof HTMLElement) {
@@ -87,6 +89,24 @@ export class Renderer {
         prevSibling = newFiber;
       });
     }
+  }
+
+  private commitWork(fiber: Node | null) {
+    if (!fiber) {
+      return;
+    }
+
+    // 파이버 노드에 맞는 element 생성
+    fiber.dom = this.createDomElement(fiber);
+  
+    // 변경된 attribute만 체크 후 갱신
+    this.checkProps(fiber);
+  
+    // 새로 생성된 노드의 경우 부모 밑에 추가
+    this.appendNewNode(fiber);
+  
+    // 기존 alternate가 없을 경우에만 새로 생성한 노드로 갱신
+    this.updateFiberNode(fiber);
   
     if (fiber.child) {
       this.commitWork(fiber.child);

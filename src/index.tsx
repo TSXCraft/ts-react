@@ -10,12 +10,14 @@ const ChildComponent = () => {
   )
 }
 
-const App = () => (
-  <div>
-    <h1>Test Parent</h1>
-    <ChildComponent />
-  </div>
-);
+const App = () => {
+  return (
+    <div>
+      <h1>Test Parent</h1>
+      <ChildComponent />
+    </div>
+  );
+}
 
 const root = createRoot(document.getElementById("root"));
 root.render(<App />);
