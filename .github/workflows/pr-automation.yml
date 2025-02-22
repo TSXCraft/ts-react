@@ -1,0 +1,41 @@
+name: PR Automation
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+
+jobs:
+  pr-automation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Handle PR Automation
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const author = context.payload.pull_request.user.login;
+
+            // 리뷰어 목록 가져오기
+            const reviewers = await github.rest.pulls.listRequestedReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+
+            // PR 작성자가 리뷰어 목록에 있다면 제거
+            if (reviewers.data.users.some(reviewer => reviewer.login === author)) {
+              await github.rest.pulls.removeRequestedReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                reviewers: [author]
+              });
+            }
+
+            // PR 작성자를 담당자로 지정
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              assignees: [author]
+            });
