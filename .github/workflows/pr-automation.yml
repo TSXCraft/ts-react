@@ -14,28 +14,34 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const author = context.payload.pull_request.user.login;
+            const allReviewers = ['GINK-SS', 'H0onnn', 'sdh20282', 'uniqueeest'];
 
-            // 리뷰어 목록 가져오기
-            const reviewers = await github.rest.pulls.listRequestedReviewers({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-            });
+            // PR 작성자를 제외한 리뷰어 목록 생성
+            const reviewers = allReviewers.filter(reviewer => reviewer !== author);
+            console.log('Filtered Reviewers:', reviewers);
 
-            // PR 작성자가 리뷰어 목록에 있다면 제거
-            if (reviewers.data.users.some(reviewer => reviewer.login === author)) {
-              await github.rest.pulls.removeRequestedReviewers({
+            try {
+              // 리뷰어 지정
+              const response = await github.rest.pulls.requestReviewers({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: context.payload.pull_request.number,
-                reviewers: [author]
+                reviewers: reviewers
               });
+              console.log('Request Reviewers Response:', response.data);
+            } catch (error) {
+              console.error('Error in requesting reviewers:', error);
             }
 
-            // PR 작성자를 담당자로 지정
-            await github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              assignees: [author]
-            });
+            try {
+              // PR 작성자를 담당자로 지정
+              const assigneeResponse = await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                assignees: [author]
+              });
+              console.log('Add Assignee Response:', assigneeResponse.data);
+            } catch (error) {
+              console.error('Error in adding assignee:', error);
+            }
