@@ -1,6 +1,6 @@
-import React from './core/react';
+import React from '@core/react';
 
-import { createRoot } from "./core";
+import { createRoot } from "@core";
 
 const ChildComponent = () => {
   return (

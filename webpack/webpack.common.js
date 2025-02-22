@@ -17,6 +17,9 @@ module.exports = {
       path.resolve(__dirname, '../src'),
       'node_modules',
     ],
+    alias: {
+      "@core": path.resolve(__dirname, "../src/core"),
+    },
   },
   plugins: [
     new HtmlWebpackPlugin({

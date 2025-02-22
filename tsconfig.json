@@ -5,7 +5,12 @@
     "strict": true,
     "jsx": "react-jsx",
     "jsxImportSource": ".",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "baseUrl": "./src",
+    "paths": {
+      "@core": ["core/index"],
+      "@core/*": ["core/*"]
+    }
   },
   "esModuleInterop": true,
   "skipLibCheck": true
