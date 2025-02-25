@@ -13,7 +13,7 @@ export function Router({ children }: { children?: any }) {
   }
 
   return {
-    type: "div",
+    type: "Fragment",
     props: { children: currentChildren },
   };
 }

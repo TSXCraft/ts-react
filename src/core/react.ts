@@ -16,7 +16,12 @@ export function createElement(type: any, props: any, ...children: any[]) {
   };
 }
 
-export const Fragment = (props: { children: any }) => createElement("div", props);
+export const Fragment = (props: { children: any }) => {
+  return {
+    type: "Fragment",
+    props,
+  }
+};
 
 const React = {
   createElement,

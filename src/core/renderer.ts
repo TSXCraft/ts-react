@@ -46,7 +46,7 @@ export class Renderer {
   }
 
   private createDomElement(fiber: Node) {
-    let dom: DocumentFragment | HTMLElement | Text | undefined | null = fiber.dom;
+    let dom: HTMLElement | Text | undefined | null = fiber.dom;
 
     if (!dom) {
       if (fiber.type === "TEXT_ELEMENT") {
@@ -60,7 +60,7 @@ export class Renderer {
   }
 
   private checkProps(fiber: Node) {
-    if (fiber.dom instanceof HTMLElement || fiber.dom instanceof DocumentFragment) {
+    if (fiber.dom instanceof HTMLElement) {
       Object.keys(fiber.props)
         .filter((key) => key !== "children")
         .forEach((name) => {
@@ -72,7 +72,7 @@ export class Renderer {
   }
 
   private appendNewNode(fiber: Node) {
-    if ((fiber.parent?.dom instanceof HTMLElement || fiber.parent?.dom instanceof DocumentFragment) && fiber.dom) {
+    if (fiber.type !== "Fragment" && fiber.parent?.dom instanceof HTMLElement && fiber.dom) {
       if (!fiber.alternate) {
         fiber.parent.dom.appendChild(fiber.dom);
       }
@@ -81,13 +81,13 @@ export class Renderer {
 
   private updateFiberNode(fiber: Node) {
     let prevSibling: Node | null = null;
-  
-    if (fiber.dom instanceof HTMLElement || fiber.dom instanceof DocumentFragment) {
+
+    if (fiber.dom instanceof HTMLElement) {
       fiber.props.children.forEach((child: any, index: number) => {
         if (!child || typeof child !== "object") return;
         
         const oldChild = fiber.alternate?.child;
-        
+
         const newFiber: Node = {
           type: child.type,
           props: child.props,
@@ -111,18 +111,33 @@ export class Renderer {
     if (!fiber) {
       return;
     }
+    
+    if (fiber.type === "Fragment") {
+      let parent = fiber.parent;
 
-    // 파이버 노드에 맞는 element 생성
+      while (parent?.type && parent.type === 'Fragment') {
+        parent = parent.parent;
+      }
+
+      if (fiber?.props?.children) {
+        fiber.props.children.forEach((child: Node) => {
+          child.parent = parent;
+
+          this.commitWork(child);
+        })
+      }
+
+      if (fiber.sibling) {
+        this.commitWork(fiber.sibling);
+      }
+
+      return;
+    }
+
     fiber.dom = this.createDomElement(fiber);
 
-  
-    // 변경된 attribute만 체크 후 갱신
     this.checkProps(fiber);
-  
-    // 새로 생성된 노드의 경우 부모 밑에 추가
     this.appendNewNode(fiber);
-  
-    // 기존 alternate가 없을 경우에만 새로 생성한 노드로 갱신
     this.updateFiberNode(fiber);
   
     if (fiber.child) {
