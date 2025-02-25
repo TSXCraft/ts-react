@@ -5,12 +5,26 @@ export class Renderer {
   protected currentNode: Node | null = null;
   protected nextNode: Node | null = null;
 
+  private static instance: Renderer | null = null;
+  static isListening = false;
+
   constructor(container: HTMLElement | null) {
     if (!container) {
       throw new Error("Root not exists!");
     }
 
     this.container = container;
+    Renderer.instance = this;
+  }
+
+  static forceUpdate() {
+    requestAnimationFrame(() => {
+      if (!Renderer.instance) {
+        return;
+      }
+
+      Renderer.instance.render(Renderer.instance.currentNode);
+    })
   }
 
   render(element: any) {
@@ -32,7 +46,7 @@ export class Renderer {
   }
 
   private createDomElement(fiber: Node) {
-    let dom: HTMLElement | Text | undefined | null = fiber.dom;
+    let dom: DocumentFragment | HTMLElement | Text | undefined | null = fiber.dom;
 
     if (!dom) {
       if (fiber.type === "TEXT_ELEMENT") {
@@ -46,7 +60,7 @@ export class Renderer {
   }
 
   private checkProps(fiber: Node) {
-    if (fiber.dom instanceof HTMLElement) {
+    if (fiber.dom instanceof HTMLElement || fiber.dom instanceof DocumentFragment) {
       Object.keys(fiber.props)
         .filter((key) => key !== "children")
         .forEach((name) => {
@@ -58,7 +72,7 @@ export class Renderer {
   }
 
   private appendNewNode(fiber: Node) {
-    if (fiber.parent?.dom instanceof HTMLElement && fiber.dom) {
+    if ((fiber.parent?.dom instanceof HTMLElement || fiber.parent?.dom instanceof DocumentFragment) && fiber.dom) {
       if (!fiber.alternate) {
         fiber.parent.dom.appendChild(fiber.dom);
       }
@@ -68,10 +82,12 @@ export class Renderer {
   private updateFiberNode(fiber: Node) {
     let prevSibling: Node | null = null;
   
-    if (fiber.dom instanceof HTMLElement) {
+    if (fiber.dom instanceof HTMLElement || fiber.dom instanceof DocumentFragment) {
       fiber.props.children.forEach((child: any, index: number) => {
+        if (!child || typeof child !== "object") return;
+        
         const oldChild = fiber.alternate?.child;
-    
+        
         const newFiber: Node = {
           type: child.type,
           props: child.props,
@@ -79,7 +95,7 @@ export class Renderer {
           dom: oldChild?.dom || null,
           alternate: oldChild || null,
         };
-    
+
         if (index === 0) {
           fiber.child = newFiber;
         } else if (prevSibling) {
@@ -98,6 +114,7 @@ export class Renderer {
 
     // 파이버 노드에 맞는 element 생성
     fiber.dom = this.createDomElement(fiber);
+
   
     // 변경된 attribute만 체크 후 갱신
     this.checkProps(fiber);
