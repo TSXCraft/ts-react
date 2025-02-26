@@ -32,7 +32,7 @@ export function createBrowserHistory() {
   window.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
     
-    if (target instanceof HTMLAnchorElement  && target.tagName === "A" && target.href.startsWith(window.location.origin)) {
+    if (target instanceof HTMLAnchorElement && target.href.startsWith(window.location.origin)) {
       e.preventDefault();
 
       history.push(target.pathname);
