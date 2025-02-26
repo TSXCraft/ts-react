@@ -1,20 +1,28 @@
 import { history } from "./history";
 import { Renderer } from "../renderer";
 
-export function Router({ children }: { children: any[] }) {
+interface RouterProps {
+  children?: any;
+}
+
+export function Router({ children }: RouterProps) {
   if (!Renderer.isListening) {
     history.listen(() => {
-      const matchedRoute = children.find((child) => child.type === "Route" && child.props.path === history.location);
-      
-      Renderer.forceUpdate(matchedRoute.props.element());
+      const matchedRoute = (Array.isArray(children) ? children : [children])
+        .find((child) => child.type === "Route" && child.props.path === history.location);
+
+      if (matchedRoute) {
+        Renderer.forceUpdate(matchedRoute.props.element());
+      }
     });
 
     Renderer.isListening = true;
   }
 
   const currentPath = history.location;
-
-  const matchedRoute = children.find((child) => child.type === "Route" && child.props.path === currentPath);
+  
+  const matchedRoute = (Array.isArray(children) ? children : [children])
+    .find((child) => child.type === "Route" && child.props.path === currentPath);
 
   return matchedRoute ? matchedRoute.props.element() : null;
 }
