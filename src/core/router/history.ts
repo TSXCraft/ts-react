@@ -10,11 +10,13 @@ export function createBrowserHistory() {
       return window.location.pathname;
     },
     push(path: string) {
-      if (window.location.pathname !== path) {
-        window.history.pushState({}, "", path);
-
-        notifyListeners();
+      if (window.location.pathname === path) {
+        return;
       }
+      
+      window.history.pushState({}, "", path);
+
+      notifyListeners();
     },
     listen(listener: () => void) {
       listeners.push(listener);
@@ -26,6 +28,16 @@ export function createBrowserHistory() {
   };
 
   window.addEventListener("popstate", notifyListeners);
+
+  window.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    
+    if (target instanceof HTMLAnchorElement  && target.tagName === "A" && target.href.startsWith(window.location.origin)) {
+      e.preventDefault();
+
+      history.push(target.pathname);
+    }
+  });
 
   return history;
 }

@@ -1,4 +1,4 @@
-import { Node } from "./types";
+import { FiberNode } from "./types";
 
 export function createElement(type: any, props: any, ...children: any[]) {
   if (typeof type === "function") {
@@ -23,7 +23,7 @@ export const Fragment = (props: { children: any }) => {
     type: "Fragment",
     props: {
       ...props,
-      children: props.children.map((child: Node) =>
+      children: props.children.map((child: FiberNode) =>
         typeof child === "string"
           ? { type: "TEXT_ELEMENT", props: { nodeValue: child } }
           : child

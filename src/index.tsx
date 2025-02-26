@@ -17,6 +17,7 @@ const About = () => {
     <div>
       <a href="/">home</a>
       <p>About Page</p>
+      <span>test</span>
     </div>
   );
 }

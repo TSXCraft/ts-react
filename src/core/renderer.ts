@@ -1,9 +1,9 @@
-import { Node } from "./types";
+import { FiberNode } from "./types";
 
 export class Renderer {
   protected container: HTMLElement;
-  protected currentNode: Node | null = null;
-  protected nextNode: Node | null = null;
+  protected currentNode: FiberNode | null = null;
+  protected nextNode: FiberNode | null = null;
 
   private static instance: Renderer | null = null;
   static isListening = false;
@@ -17,13 +17,13 @@ export class Renderer {
     Renderer.instance = this;
   }
 
-  static forceUpdate() {
+  static forceUpdate(element: FiberNode) {
     requestAnimationFrame(() => {
       if (!Renderer.instance) {
         return;
       }
 
-      Renderer.instance.render(Renderer.instance.currentNode);
+      Renderer.instance.render(element);
     })
   }
 
@@ -45,21 +45,36 @@ export class Renderer {
     }
   }
 
-  private createDomElement(fiber: Node) {
-    let dom: HTMLElement | Text | undefined | null = fiber.dom;
+  private createDomElement(fiber: FiberNode) {
+    let dom: HTMLElement | Text | null | undefined = fiber.dom;
+  
+    if (dom) {
+      if (fiber.type === "ROOT") {
+        return dom;
+      }
 
-    if (!dom) {
+      if (fiber.type === "TEXT_ELEMENT") {
+        if (!(dom instanceof Text)) {
+          dom = document.createTextNode(fiber.props.nodeValue);
+        }
+      } else if (typeof fiber.type === "string") {
+        if (!(dom instanceof HTMLElement) || dom.nodeName.toLowerCase() !== fiber.type.toLocaleLowerCase()) {
+          dom = document.createElement(fiber.type);
+        }
+      }
+    } else {
       if (fiber.type === "TEXT_ELEMENT") {
         dom = document.createTextNode(fiber.props.nodeValue);
       } else if (typeof fiber.type === "string") {
         dom = document.createElement(fiber.type);
       }
     }
-
+    
     return dom;
   }
+  
 
-  private checkProps(fiber: Node) {
+  private checkProps(fiber: FiberNode) {
     if (fiber.dom instanceof HTMLElement) {
       Object.keys(fiber.props)
         .filter((key) => key !== "children")
@@ -71,65 +86,119 @@ export class Renderer {
     }
   }
 
-  private appendNewNode(fiber: Node) {
-    if (fiber.type !== "Fragment" && fiber.parent?.dom instanceof HTMLElement && fiber.dom) {
-      if (!fiber.alternate) {
-        fiber.parent.dom.appendChild(fiber.dom);
+  private appendNewNode(fiber: FiberNode) {
+    if (!fiber.parent || !fiber.parent.dom || !fiber.dom) return;
+  
+    const parentDom = fiber.parent.dom;
+    const existingDom = fiber.alternate?.dom;
+  
+    if (!existingDom) {
+      parentDom.appendChild(fiber.dom);
+
+      return;
+    }
+  
+    if (fiber.dom instanceof Text && existingDom instanceof Text) {
+      if (fiber.props.nodeValue !== existingDom.nodeValue) {
+        existingDom.nodeValue = fiber.props.nodeValue;
       }
+
+      fiber.dom = existingDom;
+
+      return;
     }
-  }
-
-  private updateFiberNode(fiber: Node) {
-    let prevSibling: Node | null = null;
-
-    if (fiber.dom instanceof HTMLElement) {
-      fiber.props.children.forEach((child: any, index: number) => {
-        if (!child || typeof child !== "object") return;
-        
-        const oldChild = fiber.alternate?.child;
-
-        const newFiber: Node = {
-          type: child.type,
-          props: child.props,
-          parent: fiber,
-          dom: oldChild?.dom || null,
-          alternate: oldChild || null,
-        };
-
-        if (index === 0) {
-          fiber.child = newFiber;
-        } else if (prevSibling) {
-          prevSibling.sibling = newFiber;
+  
+    if (fiber.dom instanceof HTMLElement && existingDom instanceof HTMLElement) {
+      if (fiber.dom.tagName !== existingDom.tagName) {
+        while (existingDom.firstChild) {
+          fiber.dom.appendChild(existingDom.firstChild);
         }
-    
-        prevSibling = newFiber;
-      });
+        
+        parentDom.replaceChild(fiber.dom, existingDom);
+      } else {
+        fiber.dom = existingDom;
+      }
+      return;
+    }
+
+    parentDom.replaceChild(fiber.dom, existingDom);
+  }
+
+  private deleteFiberNode(fiber: FiberNode) {
+    if (!fiber.dom || !fiber.parent?.dom) return;
+  
+    fiber.parent.dom.removeChild(fiber.dom);
+  
+    fiber.dom = null;
+    fiber.alternate = null;
+    fiber.child = null;
+    fiber.sibling = null;
+  }
+  
+
+  private updateFiberNode(fiber: FiberNode) {
+    let prevSibling: FiberNode | null = null;
+    let oldChild = fiber.alternate?.child;
+    let lastOldChild = oldChild;
+
+    fiber.props.children?.forEach((child: any, index: number) => {
+      if (!child || typeof child !== "object") return;
+  
+      const newFiber: FiberNode = {
+        type: child.type,
+        props: child.props,
+        parent: fiber,
+        dom: oldChild?.dom || null,
+        alternate: oldChild || null,
+      };
+  
+      if (index === 0) {
+        fiber.child = newFiber;
+      } else if (prevSibling) {
+        prevSibling.sibling = newFiber;
+      }
+  
+      prevSibling = newFiber;
+      lastOldChild = oldChild;
+      oldChild = oldChild?.sibling;
+    });
+
+    while (oldChild) {
+      const nextOldChild = oldChild.sibling;
+
+      this.deleteFiberNode(oldChild);
+
+      oldChild = nextOldChild;
     }
   }
 
-  private commitWork(fiber: Node | null) {
+  private handleFragment(fiber: FiberNode) {
+    let parent = fiber.parent;
+
+    while (parent?.type && parent.type === 'Fragment') {
+      parent = parent.parent;
+    }
+
+    if (fiber?.props?.children) {
+      fiber.props.children.forEach((child: FiberNode) => {
+        child.parent = parent;
+
+        this.commitWork(child);
+      })
+    }
+
+    if (fiber.sibling) {
+      this.commitWork(fiber.sibling);
+    }
+  }
+
+  private commitWork(fiber: FiberNode | null) {
     if (!fiber) {
       return;
     }
     
     if (fiber.type === "Fragment") {
-      let parent = fiber.parent;
-
-      while (parent?.type && parent.type === 'Fragment') {
-        parent = parent.parent;
-      }
-
-      if (fiber?.props?.children) {
-        fiber.props.children.forEach((child: Node) => {
-          child.parent = parent;
-
-          this.commitWork(child);
-        })
-      }
-
-      if (fiber.sibling) {
-        this.commitWork(fiber.sibling);
-      }
+      this.handleFragment(fiber);
 
       return;
     }

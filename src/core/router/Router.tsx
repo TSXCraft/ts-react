@@ -1,19 +1,20 @@
 import { history } from "./history";
 import { Renderer } from "../renderer";
 
-export function Router({ children }: { children?: any }) {
-  let currentChildren = children.filter((c: any) => c !== null);
-  
+export function Router({ children }: { children: any[] }) {
   if (!Renderer.isListening) {
     history.listen(() => {
-      Renderer.forceUpdate();
+      const matchedRoute = children.find((child) => child.type === "Route" && child.props.path === history.location);
+      
+      Renderer.forceUpdate(matchedRoute.props.element());
     });
-    
+
     Renderer.isListening = true;
   }
 
-  return {
-    type: "Fragment",
-    props: { children: currentChildren },
-  };
+  const currentPath = history.location;
+
+  const matchedRoute = children.find((child) => child.type === "Route" && child.props.path === currentPath);
+
+  return matchedRoute ? matchedRoute.props.element() : null;
 }
