@@ -1,23 +1,35 @@
 import React from '@core/react';
 
 import { createRoot } from "@core";
+import { Router, Route } from "@core/router";
 
-const ChildComponent = () => {
+const Home = () => {
   return (
-    <div style="background-color: aqua">
-      <p>Test Child</p>
+    <div>
+      <a href="/about">about</a>
+      <h1>Home Page</h1>
     </div>
   )
 }
 
-const App = () => {
+const About = () => {
   return (
     <div>
-      <h1>Test Parent</h1>
-      <ChildComponent />
+      <a href="/">home</a>
+      <p>About Page</p>
+      <span>test</span>
     </div>
   );
 }
 
-const root = createRoot(document.getElementById("root"));
-root.render(<App />);
+const App = () => {
+  return (
+    <Router>
+      <Route path='/' element={Home} />
+      <Route path='/about' element={About} />
+    </Router>
+  )
+}
+
+const root = createRoot(document.getElementById("root")!);
+root.render(App());

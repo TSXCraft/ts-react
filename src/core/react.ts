@@ -1,3 +1,5 @@
+import { FiberNode } from "./types";
+
 export function createElement(type: any, props: any, ...children: any[]) {
   if (typeof type === "function") {
     return type({ ...props, children });
@@ -16,7 +18,19 @@ export function createElement(type: any, props: any, ...children: any[]) {
   };
 }
 
-export const Fragment = (props: { children: any }) => createElement("Fragment", props);
+export const Fragment = (props: { children: any }) => {
+  return {
+    type: "Fragment",
+    props: {
+      ...props,
+      children: props.children.map((child: FiberNode) =>
+        typeof child === "string"
+          ? { type: "TEXT_ELEMENT", props: { nodeValue: child } }
+          : child
+      ),
+    },
+  }
+};
 
 const React = {
   createElement,
