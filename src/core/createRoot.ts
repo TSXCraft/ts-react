@@ -13,7 +13,7 @@ class RootRenderer extends Renderer {
       alternate: this.currentNode,
     };
 
-    this.commitNode();
+    this.confirm();
   }
 }
 
