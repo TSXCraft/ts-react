@@ -2,8 +2,8 @@ import { FiberNode } from "./types";
 
 export class Renderer {
   protected container: HTMLElement;
-  protected currentNode: FiberNode | null = null;
-  protected nextNode: FiberNode | null = null;
+  protected currentFiberTree: FiberNode | null = null;
+  protected workingInFiberTree: FiberNode | null = null;
 
   private static instance: Renderer | null = null;
   static isListening = false;
@@ -28,39 +28,65 @@ export class Renderer {
   }
 
   render(element: any) {
-    this.nextNode = {
-      type: "NODE",
-      props: { children: [element] },
-      dom: this.container,
-      alternate: this.currentNode,
-    };
+    if (this.currentFiberTree) {
+      this.currentFiberTree.alternate = null;
 
-    this.confirm();
+      this.workingInFiberTree = {
+        ...this.currentFiberTree,
+        props: { children: [element] },
+        alternate: this.currentFiberTree
+      }
+    } else {
+      this.workingInFiberTree = {
+        type: "ROOT",
+        props: { children: [element] },
+        dom: this.container,
+        alternate: null,
+      };
+    }
+    
+    this.workLoop();
   }
 
-  protected confirm() {
-    this.renderFiberTree(this.nextNode);
+  private workLoop() {
+    this.renderFiberTree();
     this.commitFiberTree();
+
+    this.currentFiberTree = this.workingInFiberTree;
   }
 
-  private renderFiberTree(fiber: FiberNode | null) {
-    this.reconcile(fiber);
+  private renderFiberTree() {
+    if (!this.workingInFiberTree) {
+      return;
+    }
+
+    let fiber: FiberNode | null = this.workingInFiberTree;
+  
+    while (fiber) {
+      fiber = this.reconcile(fiber);
+    }
   }
 
-  private reconcile(fiber: FiberNode | null) {
-    if (!fiber) return;
-
-    fiber.dom = this.createDomElement(fiber);
+  private reconcile(fiber: FiberNode) {
+    this.createDomElement(fiber);
     this.checkProps(fiber);
     this.updateFiberNode(fiber);
 
     if (fiber.child) {
-      this.reconcile(fiber.child);
+      return fiber.child
     }
 
-    if (fiber.sibling) {
-      this.reconcile(fiber.sibling);
+    let nextFiber: FiberNode | null = fiber;
+
+    while (nextFiber) {
+      if (nextFiber.sibling) {
+        return nextFiber.sibling;
+      }
+
+      nextFiber = nextFiber.parent ?? null;
     }
+
+    return null;
   }
 
   private createDomElement(fiber: FiberNode) {
@@ -88,7 +114,7 @@ export class Renderer {
       }
     }
 
-    return dom;
+    fiber.dom = dom;
   }
 
   private checkProps(fiber: FiberNode) {
@@ -130,6 +156,10 @@ export class Renderer {
         prevSibling.sibling = newFiber;
       }
 
+      if (oldChild) {
+        oldChild.alternate = null;
+      }
+
       prevSibling = newFiber;
       oldChild = oldChild?.sibling;
     });
@@ -146,7 +176,9 @@ export class Renderer {
       return;
     }
 
-    fiber.parent.dom.removeChild(fiber.dom);
+    if (fiber.dom && fiber.parent?.dom && fiber.parent.dom.contains(fiber.dom)) {
+      fiber.parent.dom.removeChild(fiber.dom);
+    }
 
     fiber.dom = null;
     fiber.alternate = null;
@@ -155,9 +187,9 @@ export class Renderer {
   }
 
   private commitFiberTree() {
-    if (this.nextNode) {
-      this.commitWork(this.nextNode);
-      this.currentNode = this.nextNode;
+    if (this.workingInFiberTree) {
+      this.commitWork(this.workingInFiberTree);
+      this.currentFiberTree = this.workingInFiberTree;
     }
   }
 
