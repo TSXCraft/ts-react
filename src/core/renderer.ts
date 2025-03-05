@@ -189,6 +189,8 @@ export class Renderer {
         if (currentDom.getAttribute(name) !== String(value)) {
           currentDom.setAttribute(name, String(value));
         }
+
+        currentDom.removeAttribute('checkedprops');
       });
     } else if (currentDom instanceof Text) {
       if (fiber.props.nodeValue !== currentDom.nodeValue) {
