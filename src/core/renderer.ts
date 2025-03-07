@@ -2,8 +2,8 @@ import { FiberNode } from "./types";
 
 export class Renderer {
   protected container: HTMLElement;
-  protected currentNode: FiberNode | null = null;
-  protected nextNode: FiberNode | null = null;
+  protected currentFiberTree: FiberNode | null = null;
+  protected workingInFiberTree: FiberNode | null = null;
 
   private static instance: Renderer | null = null;
   static isListening = false;
@@ -24,30 +24,74 @@ export class Renderer {
       }
 
       Renderer.instance.render(element);
-    })
+    });
   }
 
   render(element: any) {
-    this.nextNode = {
-      type: "NODE",
-      props: { children: [element] },
-      dom: this.container,
-      alternate: this.currentNode,
-    };
+    if (this.currentFiberTree) {
+      this.currentFiberTree.alternate = null;
 
-    this.commitNode();
+      this.workingInFiberTree = {
+        ...this.currentFiberTree,
+        props: { children: [element] },
+        alternate: this.currentFiberTree
+      }
+    } else {
+      this.workingInFiberTree = {
+        type: "ROOT",
+        props: { children: [element] },
+        dom: this.container,
+        alternate: null,
+      };
+    }
+    
+    this.workLoop();
   }
 
-  protected commitNode() {
-    if (this.nextNode) {
-      this.commitWork(this.nextNode);
-      this.currentNode = this.nextNode;
+  private workLoop() {
+    this.renderFiberTree();
+    this.commitFiberTree();
+
+    this.currentFiberTree = this.workingInFiberTree;
+  }
+
+  private renderFiberTree() {
+    if (!this.workingInFiberTree) {
+      return;
     }
+
+    let fiber: FiberNode | null = this.workingInFiberTree;
+  
+    while (fiber) {
+      fiber = this.reconcile(fiber);
+    }
+  }
+
+  private reconcile(fiber: FiberNode) {
+    this.createDomElement(fiber);
+    this.checkProps(fiber);
+    this.updateFiberNode(fiber);
+
+    if (fiber.child) {
+      return fiber.child
+    }
+
+    let nextFiber: FiberNode | null = fiber;
+
+    while (nextFiber) {
+      if (nextFiber.sibling) {
+        return nextFiber.sibling;
+      }
+
+      nextFiber = nextFiber.parent ?? null;
+    }
+
+    return null;
   }
 
   private createDomElement(fiber: FiberNode) {
     let dom: HTMLElement | Text | null | undefined = fiber.dom;
-  
+
     if (dom) {
       if (fiber.type === "ROOT") {
         return dom;
@@ -69,35 +113,136 @@ export class Renderer {
         dom = document.createElement(fiber.type);
       }
     }
-    
-    return dom;
+
+    fiber.dom = dom;
   }
-  
 
   private checkProps(fiber: FiberNode) {
-    if (fiber.dom instanceof HTMLElement) {
-      Object.keys(fiber.props)
-        .filter((key) => key !== "children")
-        .forEach((name) => {
-          if (fiber.dom && fiber.dom instanceof HTMLElement && fiber.dom.getAttribute(name) !== fiber.props[name]) {
-            fiber.dom.setAttribute(name, fiber.props[name]);
-          }
-        });
+    fiber.props.checkedProps = {};
+  
+    if (fiber.type === "TEXT_ELEMENT") {
+      fiber.props.checkedProps.nodeValue = fiber.props.nodeValue;
+
+      return;
+    }
+  
+    Object.keys(fiber.props)
+      .filter((key) => key !== "children")
+      .forEach((name) => {
+        fiber.props.checkedProps[name] = fiber.props[name];
+      });
+  }
+
+  private updateFiberNode(fiber: FiberNode) {
+    let prevSibling: FiberNode | null = null;
+    let oldChild = fiber.alternate?.child;
+
+    fiber.props.children?.forEach((child: any, index: number) => {
+      if (!child || typeof child !== "object") {
+        return;
+      }
+
+      const newFiber: FiberNode = {
+        type: child.type,
+        props: child.props,
+        parent: fiber,
+        dom: oldChild?.dom || null,
+        alternate: oldChild || null,
+      };
+
+      if (index === 0) {
+        fiber.child = newFiber;
+      } else if (prevSibling) {
+        prevSibling.sibling = newFiber;
+      }
+
+      if (oldChild) {
+        oldChild.alternate = null;
+      }
+
+      prevSibling = newFiber;
+      oldChild = oldChild?.sibling;
+    });
+
+    while (oldChild) {
+      const nextOldChild = oldChild.sibling;
+      this.deleteFiberNode(oldChild);
+      oldChild = nextOldChild;
+    }
+  }
+
+  private deleteFiberNode(fiber: FiberNode) {
+    if (!fiber.dom || !fiber.parent?.dom) {
+      return;
+    }
+
+    if (fiber.dom && fiber.parent?.dom && fiber.parent.dom.contains(fiber.dom)) {
+      fiber.parent.dom.removeChild(fiber.dom);
+    }
+
+    fiber.dom = null;
+    fiber.alternate = null;
+    fiber.child = null;
+    fiber.sibling = null;
+  }
+
+  private commitFiberTree() {
+    if (this.workingInFiberTree) {
+      this.commitWork(this.workingInFiberTree);
+      this.currentFiberTree = this.workingInFiberTree;
+    }
+  }
+
+  private commitWork(fiber: FiberNode | null) {
+    if (!fiber) {
+      return;
+    }
+    
+    this.applyProps(fiber);
+    this.appendNewNode(fiber);
+
+    if (fiber.child) {
+      
+      this.commitWork(fiber.child);
+    }
+
+    if (fiber.sibling) {
+      this.commitWork(fiber.sibling);
+    }
+  }
+
+  private applyProps(fiber: FiberNode) {
+    const currentDom = fiber.dom;
+
+    if (currentDom instanceof HTMLElement) {
+      Object.keys(fiber.props.checkedProps || {}).forEach((name) => {
+        const value = fiber.props.checkedProps[name];
+
+        if (currentDom.getAttribute(name) !== String(value)) {
+          currentDom.setAttribute(name, String(value));
+        }
+
+        currentDom.removeAttribute('checkedprops');
+      });
+    } else if (currentDom instanceof Text) {
+      if (fiber.props.nodeValue !== currentDom.nodeValue) {
+        currentDom.nodeValue = fiber.props.nodeValue;
+      }
     }
   }
 
   private appendNewNode(fiber: FiberNode) {
     if (!fiber.parent || !fiber.parent.dom || !fiber.dom) return;
-  
+
     const parentDom = fiber.parent.dom;
     const existingDom = fiber.alternate?.dom;
-  
+
     if (!existingDom) {
       parentDom.appendChild(fiber.dom);
 
       return;
     }
-  
+
     if (fiber.dom instanceof Text && existingDom instanceof Text) {
       if (fiber.props.nodeValue !== existingDom.nodeValue) {
         existingDom.nodeValue = fiber.props.nodeValue;
@@ -107,114 +252,20 @@ export class Renderer {
 
       return;
     }
-  
+
     if (fiber.dom instanceof HTMLElement && existingDom instanceof HTMLElement) {
       if (fiber.dom.tagName !== existingDom.tagName) {
         while (existingDom.firstChild) {
           fiber.dom.appendChild(existingDom.firstChild);
         }
-        
         parentDom.replaceChild(fiber.dom, existingDom);
       } else {
         fiber.dom = existingDom;
       }
+
       return;
     }
 
     parentDom.replaceChild(fiber.dom, existingDom);
-  }
-
-  private deleteFiberNode(fiber: FiberNode) {
-    if (!fiber.dom || !fiber.parent?.dom) return;
-  
-    fiber.parent.dom.removeChild(fiber.dom);
-  
-    fiber.dom = null;
-    fiber.alternate = null;
-    fiber.child = null;
-    fiber.sibling = null;
-  }
-  
-
-  private updateFiberNode(fiber: FiberNode) {
-    let prevSibling: FiberNode | null = null;
-    let oldChild = fiber.alternate?.child;
-    let lastOldChild = oldChild;
-
-    fiber.props.children?.forEach((child: any, index: number) => {
-      if (!child || typeof child !== "object") return;
-  
-      const newFiber: FiberNode = {
-        type: child.type,
-        props: child.props,
-        parent: fiber,
-        dom: oldChild?.dom || null,
-        alternate: oldChild || null,
-      };
-  
-      if (index === 0) {
-        fiber.child = newFiber;
-      } else if (prevSibling) {
-        prevSibling.sibling = newFiber;
-      }
-  
-      prevSibling = newFiber;
-      lastOldChild = oldChild;
-      oldChild = oldChild?.sibling;
-    });
-
-    while (oldChild) {
-      const nextOldChild = oldChild.sibling;
-
-      this.deleteFiberNode(oldChild);
-
-      oldChild = nextOldChild;
-    }
-  }
-
-  private handleFragment(fiber: FiberNode) {
-    let parent = fiber.parent;
-
-    while (parent?.type && parent.type === 'Fragment') {
-      parent = parent.parent;
-    }
-
-    if (fiber?.props?.children) {
-      fiber.props.children.forEach((child: FiberNode) => {
-        child.parent = parent;
-
-        this.commitWork(child);
-      })
-    }
-
-    if (fiber.sibling) {
-      this.commitWork(fiber.sibling);
-    }
-  }
-
-  private commitWork(fiber: FiberNode | null) {
-    if (!fiber) {
-      return;
-    }
-    
-    if (fiber.type === "Fragment") {
-      this.handleFragment(fiber);
-
-      return;
-    }
-
-    fiber.dom = this.createDomElement(fiber);
-
-    this.checkProps(fiber);
-    this.appendNewNode(fiber);
-    this.updateFiberNode(fiber);
-  
-    if (fiber.child) {
-      this.commitWork(fiber.child);
-    }
-
-    if (fiber.sibling) {
-      this.commitWork(fiber.sibling);
-    }
   }
 }
