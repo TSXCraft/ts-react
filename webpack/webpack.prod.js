@@ -26,7 +26,7 @@ module.exports = merge(common, {
             [
               '@babel/preset-react',
               {
-                runtime: 'automatic'
+                runtime: 'classic'
               }
             ],
           ],

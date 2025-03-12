@@ -3,13 +3,18 @@
     "target": "ES6",
     "module": "ESNext",
     "strict": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": ".",
+    
     "moduleResolution": "bundler",
+    
+    "jsx": "react-jsx",
+    "jsxImportSource": "@",
+
     "baseUrl": "./src",
     "paths": {
       "@core": ["core/index"],
-      "@core/*": ["core/*"]
+      "@core/*": ["core/*"],
+      "@/jsx-runtime": ["jsx-runtime/index"],
+      "@/jsxs-runtime": ["jsx-runtime/index"]
     }
   },
   "esModuleInterop": true,

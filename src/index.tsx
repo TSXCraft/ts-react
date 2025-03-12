@@ -2,6 +2,7 @@ import React from '@core/react';
 
 import { createRoot } from "@core";
 import { Router, Route } from "@core/router";
+import { About } from 'about';
 
 const Home = () => {
   return (
@@ -10,16 +11,6 @@ const Home = () => {
       <h1>Home Page</h1>
     </div>
   )
-}
-
-const About = () => {
-  return (
-    <div>
-      <a href="/">home</a>
-      <p>About Page</p>
-      <span>test</span>
-    </div>
-  );
 }
 
 const App = () => {
