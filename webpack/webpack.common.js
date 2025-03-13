@@ -19,6 +19,7 @@ module.exports = {
     ],
     alias: {
       "@core": path.resolve(__dirname, "../src/core"),
+      "@/jsx-runtime": path.resolve(__dirname, "../src/jsx-runtime.ts")
     },
   },
   plugins: [

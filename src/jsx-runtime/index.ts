@@ -1,4 +1,4 @@
-import { createElement, Fragment } from "../core/react";
+import { createElement, Fragment } from "@core/react";
 
 export { createElement as jsx, createElement as jsxs, Fragment };
 
