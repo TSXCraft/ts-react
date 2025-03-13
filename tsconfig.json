@@ -13,8 +13,7 @@
     "paths": {
       "@core": ["core/index"],
       "@core/*": ["core/*"],
-      "@/jsx-runtime": ["jsx-runtime/index"],
-      "@/jsxs-runtime": ["jsx-runtime/index"]
+      "@/jsx-runtime": ["jsx-runtime/index"]
     }
   },
   "esModuleInterop": true,
